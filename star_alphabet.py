@@ -10,7 +10,7 @@ import math
 # letter: (segments, rotation_deg). Empty list = no candidate yet.
 LETTERS = {
     "A": ([6, 5, 13, 7, 2, 10, 1], 0),
-    "B": ([2, 8, 9, 3, 10, 11], 18),
+    "B": ([13, 5, 6, 7, 1, 4, 12], 18),
     "C": ([1, 5, 4, 3], 0),
     "D": ([2, 8, 9], -18),
     "E": ([13, 12, 15, 14], -18),
