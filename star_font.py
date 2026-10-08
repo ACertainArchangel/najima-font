@@ -29,6 +29,13 @@ STROKE = 80               # stroke width in font units
 SIDE_BEARING = 60
 SPACE_WIDTH = 300
 BASELINE_OFFSET = STAR_SCALE * math.cos(math.radians(36))  # bottom tips sit on y=0
+# Letter sizing:
+#   "star"   - every letter keeps its size and position inside the star
+#   "equal"  - every letter's skeleton is scaled to CAP_HEIGHT and sits on the baseline
+#   "capped" - like "equal", but letters wider than MAX_WIDTH are scaled down to fit it
+SIZING = "equal"
+CAP_HEIGHT = 560          # skeleton height in font units
+MAX_WIDTH = 500           # skeleton width limit for "capped"
 
 OVERLAP_SIMPLE = 0x40
 
@@ -168,7 +175,20 @@ def star_point(p, rotation):
 
 
 def letter_lines(segments, rotation):
-    return [tuple(star_point(p, rotation) for p in SEGMENTS[n]) for n in segments]
+    lines = [tuple(star_point(p, rotation) for p in SEGMENTS[n]) for n in segments]
+    return lines if SIZING == "star" else resize(lines, capped=SIZING == "capped")
+
+
+def resize(lines, capped):
+    """Scale the centre-line skeleton (not the outline), so stroke weight stays
+    constant whatever the scale, and sit it on the baseline."""
+    xs = [x for line in lines for x, _ in line]
+    ys = [y for line in lines for _, y in line]
+    y_min = min(ys)
+    k = CAP_HEIGHT / (max(ys) - y_min)
+    if capped:
+        k = min(k, MAX_WIDTH / (max(xs) - min(xs)))
+    return [tuple((x * k, (y - y_min) * k) for x, y in line) for line in lines]
 
 
 def small_pentagon(cx, cy, r):
@@ -181,8 +201,9 @@ def punctuation(outliner):
     period = GlyphShape([small_pentagon(0, dot_r, dot_r)])
     comma_tail = outliner.outline([((0, dot_r), (-dot_r * 0.9, -dot_r * 2.2))])
     comma = GlyphShape([small_pentagon(0, dot_r, dot_r)] + comma_tail)
-    hyphen = letter_lines([1], 0)
-    top = BASELINE_OFFSET + STAR_SCALE
+    mid = CAP_HEIGHT / 2 if SIZING != "star" else BASELINE_OFFSET + STAR_SCALE * 0.309
+    hyphen = [((0, mid), (CAP_HEIGHT * 0.3, mid))]
+    top = CAP_HEIGHT if SIZING != "star" else BASELINE_OFFSET + STAR_SCALE
     apostrophe = [((0, top), (-STROKE * 0.8, top - STROKE * 3))]
 
     shapes = {
@@ -246,7 +267,7 @@ class StarFontBuilder:
         fb.setupNameTable({"familyName": FAMILY, "styleName": "Regular"})
         fb.setupOS2(sTypoAscender=ascent, sTypoDescender=descent, sTypoLineGap=200,
                     usWinAscent=ascent, usWinDescent=-descent,
-                    sCapHeight=y_max, sxHeight=round(BASELINE_OFFSET))
+                    sCapHeight=y_max, sxHeight=round(CAP_HEIGHT if SIZING != "star" else BASELINE_OFFSET))
         fb.setupPost()
         fb.save(path)
         return path
